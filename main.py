@@ -48,7 +48,7 @@ def get_svg_qr(data: str, border=None, invert=False) -> str:
 
 
 def get_bytes(data: str, border=None, invert=False) -> BytesIO:
-    qr = qrcode.QRCode(border=border)
+    qr = qrcode.QRCode(border=(border or 4))
     qr.add_data(data)
     qr.make(fit=True)
 
@@ -69,7 +69,8 @@ def get_bytes(data: str, border=None, invert=False) -> BytesIO:
 def get_response(payload: str, content_type: str, **kwargs) -> web.Response:
     if not payload:
         web.HTTPBadRequest()
-    response = web.Response(charset="utf-8", content_type=content_type)
+    response = web.Response(charset="utf-8", content_type=content_type,
+                            headers={"Access-Control-Allow-Origin": "*"})
     match content_type:
         case "image/png":
             response.body = get_bytes(payload, **kwargs)
