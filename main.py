@@ -21,8 +21,8 @@ import yarl
 logging.basicConfig(level=logging.INFO)
 
 
-def get_ascii_qr(data: str, border=None, invert=False) -> str:
-    qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathImage, border=(border or 0))
+def get_ascii_qr(data: str, border=None, invert=False, **kwargs) -> str:
+    qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathImage, border=int(border or 0))
     qr.add_data(data)
     s = io.StringIO()
     qr.print_ascii(s, invert=invert)
@@ -30,8 +30,8 @@ def get_ascii_qr(data: str, border=None, invert=False) -> str:
     return s.read()
 
 
-def get_svg_qr(data: str, border=None, invert=False) -> str:
-    qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathImage, border=(border or 4))
+def get_svg_qr(data: str, border=None, invert=False, **kwargs) -> str:
+    qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathImage, border=int(border or 4))
     qr.add_data(data)
     qr.make(fit=True)
     style = """
@@ -47,8 +47,8 @@ def get_svg_qr(data: str, border=None, invert=False) -> str:
     return img.to_string(encoding="unicode")
 
 
-def get_bytes(data: str, border=None, invert=False) -> BytesIO:
-    qr = qrcode.QRCode(border=(border or 4))
+def get_bytes(data: str, border=None, invert=False, **kwargs) -> BytesIO:
+    qr = qrcode.QRCode(border=int(border or 4))
     qr.add_data(data)
     qr.make(fit=True)
 
@@ -82,6 +82,10 @@ def get_response(payload: str, content_type: str, **kwargs) -> web.Response:
     return response
 
 
+def get_kwargs(query: web.Request.query) -> dict:
+    return {k:v for k, v in query.items() if k in {"invert", "border"}}
+
+
 def create_app(stop=False):
     app = web.Application()
     routes = web.RouteTableDef()
@@ -91,40 +95,35 @@ def create_app(stop=False):
     async def on_img(req: web.Request):
         payload = str(yarl.URL(req.match_info['payload']).with_query(req.query))
         payload = html.unescape(payload)
-        return get_response(payload, "image/png")
+        return get_response(payload, "image/png", **get_kwargs(req.query))
 
     @routes.get(r'/qr/png')
     @routes.get(r'/qr/img')
     async def on_img(req: web.Request):
         payload = req.query.get("data", "") or req.query.get("qr", "")
-        return get_response(payload, "image/png")
+        return get_response(payload, "image/png", **get_kwargs(req.query))
 
     @routes.get(r'/qr/ascii/{payload:.*}')
     async def on_ascii(req: web.Request):
         payload = str(yarl.URL(req.match_info['payload']).with_query(req.query))
         payload = html.unescape(payload)
-        return get_response(payload, "text/plain")
+        return get_response(payload, "text/plain", **get_kwargs(req.query))
 
     @routes.get(r'/qr/ascii')
     async def on_ascii_query(req: web.Request):
         payload = req.query.get("data", "") or req.query.get("qr", "")
-        if payload:
-            return web.Response(
-                content_type="text/plain",
-                body=get_ascii_qr(payload),
-                charset="utf-8")
-        return web.HTTPBadRequest()
+        return get_response(payload, "text/plain", **get_kwargs(req.query))
 
     @routes.get(r'/qr/svg/{payload:.*}')
     async def on_svg(req: web.Request):
         payload = str(yarl.URL(req.match_info['payload']).with_query(req.query))
         payload = html.unescape(payload)
-        return get_response(payload, "image/svg+xml")
+        return get_response(payload, "image/svg+xml", **get_kwargs(req.query))
 
     @routes.get(r'/qr/svg')
     async def on_svg_query(req: web.Request):
         payload = req.query.get("data", "") or req.query.get("qr", "")
-        return get_response(payload, "image/svg+xml")
+        return get_response(payload, "image/svg+xml", **get_kwargs(req.query))
 
     @routes.get(r'/qr')
     async def on_qr(req: web.Request):
@@ -139,7 +138,7 @@ def create_app(stop=False):
                 content_type = "image/png"
             case _:
                 return web.HTTPBadRequest()
-        return get_response(payload, content_type)
+        return get_response(payload, content_type, **get_kwargs(req.query))
 
     @routes.get("/")
     async def on_main(req: web.Request):
