@@ -82,8 +82,10 @@ def get_response(payload: str, content_type: str, **kwargs) -> web.Response:
     return response
 
 
-def get_kwargs(query: web.Request.query) -> dict:
-    return {k:v for k, v in query.items() if k in {"invert", "border"}}
+def get_kwargs(query: web.Request.query) -> (dict, dict):
+    kwargs = {k:v for k, v in query.items() if k in {"invert", "border"}}
+    query = {k:v for k, v in query.items() if k not in {"invert", "border"}}
+    return kwargs, query
 
 
 def create_app(stop=False):
@@ -93,21 +95,23 @@ def create_app(stop=False):
     @routes.get(r"/qr/png/{payload:.*}")
     @routes.get(r'/qr/img/{payload:.*}')
     async def on_img(req: web.Request):
-        payload = str(yarl.URL(req.match_info['payload']).with_query(req.query))
+        kwargs, query = get_kwargs(req.query)
+        payload = str(yarl.URL(req.match_info['payload']).with_query(query))
         payload = html.unescape(payload)
-        return get_response(payload, "image/png", **get_kwargs(req.query))
+        return get_response(payload, "image/png", **kwargs)
 
     @routes.get(r'/qr/png')
     @routes.get(r'/qr/img')
     async def on_img(req: web.Request):
         payload = req.query.get("data", "") or req.query.get("qr", "")
-        return get_response(payload, "image/png", **get_kwargs(req.query))
+        return get_response(payload, "image/png", **get_kwargs(req.query)[0])
 
     @routes.get(r'/qr/ascii/{payload:.*}')
     async def on_ascii(req: web.Request):
-        payload = str(yarl.URL(req.match_info['payload']).with_query(req.query))
+        kwargs, query = get_kwargs(req.query)
+        payload = str(yarl.URL(req.match_info['payload']).with_query(query))
         payload = html.unescape(payload)
-        return get_response(payload, "text/plain", **get_kwargs(req.query))
+        return get_response(payload, "text/plain", **kwargs)
 
     @routes.get(r'/qr/ascii')
     async def on_ascii_query(req: web.Request):
@@ -116,14 +120,15 @@ def create_app(stop=False):
 
     @routes.get(r'/qr/svg/{payload:.*}')
     async def on_svg(req: web.Request):
-        payload = str(yarl.URL(req.match_info['payload']).with_query(req.query))
+        kwargs, query = get_kwargs(req.query)
+        payload = str(yarl.URL(req.match_info['payload']).with_query(query))
         payload = html.unescape(payload)
-        return get_response(payload, "image/svg+xml", **get_kwargs(req.query))
+        return get_response(payload, "image/svg+xml", **kwargs)
 
     @routes.get(r'/qr/svg')
     async def on_svg_query(req: web.Request):
         payload = req.query.get("data", "") or req.query.get("qr", "")
-        return get_response(payload, "image/svg+xml", **get_kwargs(req.query))
+        return get_response(payload, "image/svg+xml", **get_kwargs(req.query)[0])
 
     @routes.get(r'/qr')
     async def on_qr(req: web.Request):
