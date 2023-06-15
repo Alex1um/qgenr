@@ -14,32 +14,47 @@ def create_bot():
 
     @dp.message_handler(commands=["qr"], regexp=r"^(\/qr)(\s\S+)+(\s+)?$")
     async def on_qr(message: Message) -> None:
-        args = shlex.split(message.get_args().strip())
-        payload = args[-1]
+        payload = message.get_args()
 
         if len(payload) > 0:
-            if len(args) > 2:
-                color, background = get_colors(args[0], args[1], False)
-                bytes_img = get_bytes(payload, color=color, background=background)
-            else:
-                bytes_img = get_bytes(payload)
+            bytes_img = get_bytes(payload)
 
-            media = types.MediaGroup()
-            media.attach_photo(types.InputFile(bytes_img), payload)
-            await message.reply_media_group(media)
+            kb = types.InlineKeyboardMarkup()
+            kb.add(types.InlineKeyboardButton("invert", callback_data="invert=1"))
+
+            await message.reply_photo(types.InputFile(bytes_img), caption=payload, reply_markup=kb)
+
+    @dp.callback_query_handler()
+    async def bt_handler(cq: types.callback_query.CallbackQuery):
+        message = cq.message
+        param, new_value = cq.data.split("=")
+        command = message.reply_to_message.get_command(True)
+        if command == "qr":
+            code = get_bytes(message.get_args(), **{param: new_value})
+
+            kb = types.InlineKeyboardMarkup()
+            kb.add(types.InlineKeyboardButton("invert", callback_data=f"invert={'' if new_value else 1}"))
+
+            await message.edit_media(types.InputMediaPhoto(types.InputFile(code)), kb)
+        elif command == "ascii":
+            code = get_ascii_qr(message.get_args(), **{param: new_value})
+
+            kb = types.InlineKeyboardMarkup()
+            kb.add(types.InlineKeyboardButton("invert", callback_data=f"invert={'' if new_value else 1}"))
+
+            await message.edit_text(f"```\n{code}```", parse_mode="markdown", reply_markup=kb)
 
     @dp.message_handler(commands=["ascii"], regexp=r"^(\/ascii)(\s\S+)+(\s+)?$")
-    async def on_test(message: Message) -> None:
-        args = shlex.split(message.get_args().strip())
-        payload = args[-1]
+    async def on_ascii(message: Message) -> None:
+        payload = message.get_args()
 
         if len(payload) > 0:
-            if len(args) > 2:
-                color, background = get_colors(args[0], args[1], False)
-                code = get_ascii_qr(payload, color=color, background=background)
-            else:
-                code = get_ascii_qr(payload)
-            await message.reply(f"```\n{code}```", parse_mode="markdown")
+            code = get_ascii_qr(payload)
+
+            kb = types.InlineKeyboardMarkup()
+            kb.add(types.InlineKeyboardButton("invert", callback_data="invert=1"))
+
+            await message.reply(f"```\n{code}```", parse_mode="markdown", reply_markup=kb)
 
     @dp.message_handler()
     async def on_message(message: Message) -> None:

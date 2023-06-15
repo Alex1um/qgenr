@@ -38,7 +38,7 @@ def hex_to_rgb(color: str) -> tuple[int, int, int]:
     return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
 
 
-def get_ascii_qr(data: str, border=None, invert=False, color="#000000", background="#ffffff", **kwargs) -> str:
+def get_ascii_qr(data: str, border=None, invert=False, **kwargs) -> str:
     qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathImage, border=int(border or 0))
     qr.add_data(data)
     s = io.StringIO()
