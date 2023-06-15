@@ -30,14 +30,14 @@ def create_bot():
         param, new_value = cq.data.split("=")
         command = message.reply_to_message.get_command(True)
         if command == "qr":
-            code = get_bytes(message.get_args(), **{param: new_value})
+            code = get_bytes(message.reply_to_message.get_args(), **{param: new_value})
 
             kb = types.InlineKeyboardMarkup()
             kb.add(types.InlineKeyboardButton("invert", callback_data=f"invert={'' if new_value else 1}"))
 
             await message.edit_media(types.InputMediaPhoto(types.InputFile(code)), kb)
         elif command == "ascii":
-            code = get_ascii_qr(message.get_args(), **{param: new_value})
+            code = get_ascii_qr(message.reply_to_message.get_args(), **{param: new_value})
 
             kb = types.InlineKeyboardMarkup()
             kb.add(types.InlineKeyboardButton("invert", callback_data=f"invert={'' if new_value else 1}"))
