@@ -1,7 +1,6 @@
 import asyncio
 import io
 import os
-import html
 from io import BytesIO
 
 import png
@@ -19,35 +18,77 @@ import qrcode.image.pure
 import yarl
 
 logging.basicConfig(level=logging.INFO)
+_GEN_ARGS = frozenset({"color", "invert", "background", "border"})
 
 
-def get_ascii_qr(data: str, border=None, invert=False, **kwargs) -> str:
+def get_colors(color: str, background: str, invert: bool) -> tuple[str, str]:
+    def is_hex_color_valid(color: str) -> bool:
+        try:
+            return len(color) == 7 and color[0] == "#" and int(color[1:], 16) is not None
+        except Exception:
+            return False
+
+    if not is_hex_color_valid(color):
+        color = 0x000000
+    else:
+        color = int(color[1:], 16)
+    if not is_hex_color_valid(background):
+        background = 0xffffff
+    else:
+        background = int(background[1:], 16)
+    if invert:
+        color = 0xffffff - color
+        background = 0xffffff - background
+    return f"#{hex(color)[2:]:>0{6}}", f"#{hex(background)[2:]:>0{6}}"
+
+
+def hex_to_rgb(color: str) -> tuple[int, int, int]:
+    return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+
+
+def get_ascii_qr(data: str, border=None, invert=False, color="#000000", background="#ffffff", **kwargs) -> str:
     qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathImage, border=int(border or 0))
     qr.add_data(data)
     s = io.StringIO()
+
+    # color, background = map(hex_to_rgb, get_colors(color, background, invert))
+    # s.write(f"\033[38;2;{color[0]};{color[1]};{color[2]}m")
+    # s.write(f"\033[48;2;{background[0]};{background[1]};{background[2]}m")
     qr.print_ascii(s, invert=invert)
     s.seek(0)
     return s.read()
 
 
-def get_svg_qr(data: str, border=None, invert=False, **kwargs) -> str:
-    qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathImage, border=int(border or 4))
+def get_svg_qr(data: str, border=None, invert=False, background="#ffffff", color="#000000", **kwargs) -> str:
+
+    qr = qrcode.QRCode(
+        image_factory=qrcode.image.svg.SvgPathFillImage,
+        border=int(border or 4)
+    )
     qr.add_data(data)
     qr.make(fit=True)
-    style = """
-    width: 100%;
-    height:100%;
-    """
-    if invert:
-        style += "filter: invert(100%);"
+    color, background = get_colors(color, background, invert)
+    qr.image_factory.QR_PATH_STYLE = {
+        "fill": color,
+        "fill-opacity": "1",
+        "fill-rule": "nonzero",
+        "stroke": "none",
+    }
+    qr.image_factory.background = background
+    # style = """
+    # width: 100%;
+    # height:100%;
+    # """
+    # if invert:
+    #     style += "filter: invert(100%);"
     img = qr.make_image(
-        attrib={"style": style},
+        # attrib={"style": style},
         )
 
     return img.to_string(encoding="unicode")
 
 
-def get_bytes(data: str, border=None, invert=False, **kwargs) -> BytesIO:
+def get_bytes(data: str, border=None, invert=False, color="#000000", background="#ffffff", **kwargs) -> BytesIO:
     qr = qrcode.QRCode(border=int(border or 4))
     qr.add_data(data)
     qr.make(fit=True)
@@ -56,9 +97,14 @@ def get_bytes(data: str, border=None, invert=False, **kwargs) -> BytesIO:
     img = qr.make_image()
     png_img: png.Writer = img.get_image()
 
-    if invert:
-        png_img.color_type = 3
-        png_img.palette = [[255, 255, 255], [0, 0, 0]]
+    png_img.color_type = 3
+
+    color, background = get_colors(color, background, invert)
+    color, background = map(hex_to_rgb, (color, background))
+    png_img.palette = (color, background)
+
+    # if invert:
+    #     png_img.palette = [[255, 255, 255], [0, 0, 0]]
 
     bytes = io.BytesIO()
     img.save(bytes)
@@ -83,8 +129,8 @@ def get_response(payload: str, content_type: str, **kwargs) -> web.Response:
 
 
 def get_kwargs(query: web.Request.query) -> (dict, dict):
-    kwargs = {k:v for k, v in query.items() if k in {"invert", "border"}}
-    query = {k:v for k, v in query.items() if k not in {"invert", "border"}}
+    kwargs = {k:v for k, v in query.items() if k in _GEN_ARGS}
+    query = {k:v for k, v in query.items() if k not in _GEN_ARGS}
     return kwargs, query
 
 
@@ -97,7 +143,6 @@ def create_app(stop=False):
     async def on_img(req: web.Request):
         kwargs, query = get_kwargs(req.query)
         payload = str(yarl.URL(req.match_info['payload']).with_query(query))
-        payload = html.unescape(payload)
         return get_response(payload, "image/png", **kwargs)
 
     @routes.get(r'/qr/png')
@@ -110,7 +155,6 @@ def create_app(stop=False):
     async def on_ascii(req: web.Request):
         kwargs, query = get_kwargs(req.query)
         payload = str(yarl.URL(req.match_info['payload']).with_query(query))
-        payload = html.unescape(payload)
         return get_response(payload, "text/plain", **kwargs)
 
     @routes.get(r'/qr/ascii')
@@ -122,7 +166,6 @@ def create_app(stop=False):
     async def on_svg(req: web.Request):
         kwargs, query = get_kwargs(req.query)
         payload = str(yarl.URL(req.match_info['payload']).with_query(query))
-        payload = html.unescape(payload)
         return get_response(payload, "image/svg+xml", **kwargs)
 
     @routes.get(r'/qr/svg')
