@@ -4,22 +4,23 @@ import asyncio
 import os
 from base import *
 from base import _GEN_ARGS
+from aiohttp_swagger3 import SwaggerDocs, SwaggerInfo, SwaggerUiSettings
 
 
 def get_response(payload: str, content_type: str, **kwargs) -> web.Response:
-    if not payload:
-        web.HTTPBadRequest()
-    response = web.Response(charset="utf-8", content_type=content_type,
-                            headers={"Access-Control-Allow-Origin": "*"})
-    match content_type:
-        case "image/png":
-            response.body = get_bytes(payload, **kwargs)
-        case "text/plain":
-            response.body = get_ascii_qr(payload, **kwargs)
-        case "image/svg+xml":
-            response.body = get_svg_qr(payload, **kwargs)
-            # body=f"<pre align='center' style='line-height: 1em;'>{get_ascii_qr(payload)}</pre>",
-    return response
+    if payload:
+        response = web.Response(charset="utf-8", content_type=content_type,
+                                headers={"Access-Control-Allow-Origin": "*"})
+        match content_type:
+            case "image/png":
+                response.body = get_bytes(payload, **kwargs)
+            case "text/plain":
+                response.body = get_ascii_qr(payload, **kwargs)
+            case "image/svg+xml":
+                response.body = get_svg_qr(payload, **kwargs)
+                # body=f"<pre align='center' style='line-height: 1em;'>{get_ascii_qr(payload)}</pre>",
+        return response
+    return web.HTTPBadRequest()
 
 
 def get_kwargs(query: web.Request.query) -> (dict, dict):
@@ -35,40 +36,490 @@ def create_app(stop=False):
     @routes.get(r"/qr/png/{payload:.*}")
     @routes.get(r'/qr/img/{payload:.*}')
     async def on_img(req: web.Request):
+        """
+        ---
+        summary: Generate svg QR code with query params
+        tags:
+          - qr
+          - png
+        parameters:
+          - name: data
+            in: path
+            required: true
+            description: QR code data
+            schema:
+              type: string
+              format: string
+          - name: color
+            in: query
+            description: QR code color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: background
+            in: query
+            description: QR code background color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: border
+            in: query
+            description: QR code border
+            schema:
+              type: integer
+              minimum: 1
+          - name: invert
+            in: query
+            description: QR code inversion
+            schema:
+              type: boolean
+        responses:
+          '200':
+            description: QR code with given data and params
+          '500':
+            description: Unexpected server error - wrong params
+          '400':
+            description: Wrong params
+        """
         kwargs, query = get_kwargs(req.query)
         payload = str(yarl.URL(req.match_info['payload']).with_query(query))
         return get_response(payload, "image/png", **kwargs)
 
     @routes.get(r'/qr/png')
     @routes.get(r'/qr/img')
-    async def on_img(req: web.Request):
+    async def on_img_query(req: web.Request):
+        """
+        ---
+        summary: Generate svg QR code with query params
+        tags:
+          - qr
+          - png
+        parameters:
+          - name: data
+            in: query
+            required: true
+            description: QR code data
+            schema:
+              type: string
+              format: string
+          - name: color
+            in: query
+            description: QR code color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: background
+            in: query
+            description: QR code background color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: border
+            in: query
+            description: QR code border
+            schema:
+              type: integer
+              minimum: 1
+          - name: invert
+            in: query
+            description: QR code inversion
+            schema:
+              type: boolean
+        responses:
+          '200':
+            description: QR code with given data and params
+          '500':
+            description: Unexpected server error - wrong params
+          '400':
+            description: Wrong params
+        """
         payload = req.query.get("data", "") or req.query.get("qr", "")
         return get_response(payload, "image/png", **get_kwargs(req.query)[0])
 
     @routes.get(r'/qr/ascii/{payload:.*}')
     async def on_ascii(req: web.Request):
+        """
+        ---
+        summary: Generate svg QR code with query params
+        tags:
+          - qr
+          - ascii
+        parameters:
+          - name: data
+            in: path
+            required: true
+            description: QR code data
+            schema:
+              type: string
+              format: string
+          - name: color
+            in: query
+            description: QR code color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: background
+            in: query
+            description: QR code background color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: border
+            in: query
+            description: QR code border
+            schema:
+              type: integer
+              minimum: 1
+          - name: invert
+            in: query
+            description: QR code inversion
+            schema:
+              type: boolean
+        responses:
+          '200':
+            description: QR code with given data and params
+          '500':
+            description: Unexpected server error - wrong params
+          '400':
+            description: Wrong params
+        """
         kwargs, query = get_kwargs(req.query)
         payload = str(yarl.URL(req.match_info['payload']).with_query(query))
         return get_response(payload, "text/plain", **kwargs)
 
     @routes.get(r'/qr/ascii')
     async def on_ascii_query(req: web.Request):
+        """
+        ---
+        summary: Generate svg QR code with query params
+        tags:
+          - qr
+          - ascii
+        parameters:
+          - name: data
+            in: query
+            required: true
+            description: QR code data
+            schema:
+              type: string
+              format: string
+          - name: color
+            in: query
+            description: QR code color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: background
+            in: query
+            description: QR code background color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: border
+            in: query
+            description: QR code border
+            schema:
+              type: integer
+              minimum: 1
+          - name: invert
+            in: query
+            description: QR code inversion
+            schema:
+              type: boolean
+        responses:
+          '200':
+            description: QR code with given data and params
+          '500':
+            description: Unexpected server error - wrong params
+          '400':
+            description: Wrong params
+        """
         payload = req.query.get("data", "") or req.query.get("qr", "")
         return get_response(payload, "text/plain", **get_kwargs(req.query))
 
     @routes.get(r'/qr/svg/{payload:.*}')
     async def on_svg(req: web.Request):
+        """
+        ---
+        summary: Generate svg QR code with query params
+        tags:
+          - qr
+          - svg
+        parameters:
+          - name: data
+            in: path
+            required: true
+            description: QR code data
+            schema:
+              type: string
+              format: string
+          - name: color
+            in: query
+            description: QR code color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: background
+            in: query
+            description: QR code background color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: border
+            in: query
+            description: QR code border
+            schema:
+              type: integer
+              minimum: 1
+          - name: invert
+            in: query
+            description: QR code inversion
+            schema:
+              type: boolean
+        responses:
+          '200':
+            description: QR code with given data and params
+          '500':
+            description: Unexpected server error - wrong params
+          '400':
+            description: Wrong params
+        """
         kwargs, query = get_kwargs(req.query)
         payload = str(yarl.URL(req.match_info['payload']).with_query(query))
         return get_response(payload, "image/svg+xml", **kwargs)
 
     @routes.get(r'/qr/svg')
     async def on_svg_query(req: web.Request):
+        """
+        ---
+        summary: Generate svg QR code with query params
+        tags:
+          - qr
+          - svg
+        parameters:
+          - name: data
+            in: query
+            required: true
+            description: QR code data
+            schema:
+              type: string
+              format: string
+          - name: color
+            in: query
+            description: QR code color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: background
+            in: query
+            description: QR code background color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: border
+            in: query
+            description: QR code border
+            schema:
+              type: integer
+              minimum: 1
+          - name: invert
+            in: query
+            description: QR code inversion
+            schema:
+              type: boolean
+        responses:
+          '200':
+            description: QR code with given data and params
+          '500':
+            description: Unexpected server error - wrong params
+          '400':
+            description: Wrong params
+        """
         payload = req.query.get("data", "") or req.query.get("qr", "")
         return get_response(payload, "image/svg+xml", **get_kwargs(req.query)[0])
 
     @routes.get(r'/qr')
-    async def on_qr(req: web.Request):
+    async def on_qr(req: web.Request) -> web.Response:
+        """
+        ---
+        summary: Generate QR code with query params
+        tags:
+          - qr
+          - svg
+          - png
+          - ascii
+        parameters:
+          - name: data
+            in: query
+            required: true
+            description: QR code data
+            schema:
+              type: string
+              format: string
+          - name: type
+            in: query
+            description: QR code type
+            schema:
+              type: string
+              default: png
+              enum: [svg, img, png, ascii]
+          - name: color
+            in: query
+            description: QR code color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: background
+            in: query
+            description: QR code background color - hex format
+            schema:
+              type: string
+              pattern: '^#[0-9a-f]{6}$'
+            examples:
+              --:
+                value: ''
+              red:
+                value: '#ff0000'
+              green:
+                value: '#00ff00'
+              blue:
+                value: '#0000ff'
+          - name: border
+            in: query
+            description: QR code border
+            schema:
+              type: integer
+              minimum: 1
+          - name: invert
+            in: query
+            description: QR code inversion
+            schema:
+              type: boolean
+        responses:
+          '200':
+            description: QR code with given data and params
+          '500':
+            description: Unexpected server error - wrong params
+          '400':
+            description: Wrong params
+        """
         payload = req.query.get("data", "") or req.query.get("qr", "")
         type = req.query.get("type", "png")
         match type:
@@ -80,13 +531,27 @@ def create_app(stop=False):
                 content_type = "image/png"
             case _:
                 return web.HTTPBadRequest()
-        return get_response(payload, content_type, **get_kwargs(req.query))
+        return get_response(payload, content_type, **get_kwargs(req.query)[0])
 
     @routes.get("/")
     async def on_main(req: web.Request):
+        """
+        ---
+        summary: Main page
+        tags:
+          - main
+        responses:
+          '500':
+            description: Ok
+        """
         return web.HTTPOk()
 
-    app.router.add_routes(routes)
+    swagger = SwaggerDocs(
+        app,
+        swagger_ui_settings=SwaggerUiSettings(path="/api"),
+        validate=False,
+    )
+    swagger.add_routes(routes)
     runner = web.AppRunner(app)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(runner.setup())

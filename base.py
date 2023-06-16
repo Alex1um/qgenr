@@ -28,7 +28,7 @@ def get_colors(color: str, background: str, invert: bool) -> tuple[str, str]:
         background = 0xffffff
     else:
         background = int(background[1:], 16)
-    if invert:
+    if bool(invert):
         color = 0xffffff - color
         background = 0xffffff - background
     return f"#{hex(color)[2:]:>0{6}}", f"#{hex(background)[2:]:>0{6}}"
@@ -46,7 +46,7 @@ def get_ascii_qr(data: str, border=None, invert=False, **kwargs) -> str:
     # color, background = map(hex_to_rgb, get_colors(color, background, invert))
     # s.write(f"\033[38;2;{color[0]};{color[1]};{color[2]}m")
     # s.write(f"\033[48;2;{background[0]};{background[1]};{background[2]}m")
-    qr.print_ascii(s, invert=invert)
+    qr.print_ascii(s, invert=bool(invert))
     s.seek(0)
     return s.read()
 
