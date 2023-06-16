@@ -43,7 +43,7 @@ def create_app(stop=False):
           - qr
           - png
         parameters:
-          - name: data
+          - name: payload
             in: path
             required: true
             description: QR code data
@@ -100,7 +100,7 @@ def create_app(stop=False):
             description: Wrong params
         """
         kwargs, query = get_kwargs(req.query)
-        payload = str(yarl.URL(req.match_info['payload']).with_query(query))
+        payload = str(yarl.URL(req.match_info['payload']).update_query(query))
         return get_response(payload, "image/png", **kwargs)
 
     @routes.get(r'/qr/png')
@@ -181,7 +181,7 @@ def create_app(stop=False):
           - qr
           - ascii
         parameters:
-          - name: data
+          - name: payload
             in: path
             required: true
             description: QR code data
@@ -238,7 +238,7 @@ def create_app(stop=False):
             description: Wrong params
         """
         kwargs, query = get_kwargs(req.query)
-        payload = str(yarl.URL(req.match_info['payload']).with_query(query))
+        payload = str(yarl.URL(req.match_info['payload']).update_query(query))
         return get_response(payload, "text/plain", **kwargs)
 
     @routes.get(r'/qr/ascii')
@@ -318,7 +318,7 @@ def create_app(stop=False):
           - qr
           - svg
         parameters:
-          - name: data
+          - name: payload
             in: path
             required: true
             description: QR code data
@@ -375,7 +375,7 @@ def create_app(stop=False):
             description: Wrong params
         """
         kwargs, query = get_kwargs(req.query)
-        payload = str(yarl.URL(req.match_info['payload']).with_query(query))
+        payload = str(yarl.URL(req.match_info['payload']).update_query(query))
         return get_response(payload, "image/svg+xml", **kwargs)
 
     @routes.get(r'/qr/svg')
@@ -541,7 +541,7 @@ def create_app(stop=False):
         tags:
           - main
         responses:
-          '500':
+          '200':
             description: Ok
         """
         return web.HTTPOk()
